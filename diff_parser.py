@@ -7,7 +7,7 @@ import os
 import time
 
 # Function to call Gemini and generate summary with retry logic
-def summarize_change_with_retry(message, file_path, added_lines, removed_lines, google_token=None, retries=3, prompt_intro=None):
+def summarize_change_with_retry(message, file_path, change_type, added_lines, removed_lines, google_token=None, retries=3, prompt_intro=None):
     #print("[DEBUG] Google token in summarize_change_with_retry:", google_token)
 
     # ✅ Configure token ONCE
@@ -23,6 +23,7 @@ def summarize_change_with_retry(message, file_path, added_lines, removed_lines, 
                     prompt_intro.strip() + "\n\n" +
                     f"Commit message(s): {message}\n\n" +
                     f"File Path: {file_path}\n" +
+                    f"Change Type: {change_type}\n" +
                     f"Added lines:\n" + "\n".join(added_lines or []) + "\n\n" +
                     f"Removed lines:\n" + "\n".join(removed_lines or [])
                 )
@@ -30,7 +31,9 @@ def summarize_change_with_retry(message, file_path, added_lines, removed_lines, 
                 prompt = (
                     "Here is a code change. Based on the added and removed lines, and the commit messages, "
                     "provide a brief natural language description of what was changed and why. Be concise but informative.\n\n"
-                    f"Commit message(s): {message}\n\n"
+                    f"Commit message(s): {message}\n\n" +
+                    f"File Path: {file_path}\n" +
+                    f"Change Type: {change_type}\n" +
                     f"Added lines:\n" + "\n".join(added_lines or []) + "\n\n" +
                     f"Removed lines:\n" + "\n".join(removed_lines or [])
                 )
