@@ -204,6 +204,7 @@ def parse_diff_by_commit(commits, task=None, google_token=None, prompt_intro=Non
         item["summary"] = summarize_change_with_retry(
             message=item["message"],
             file_path=file_change["file_path"],
+            change_type=file_change["change_type"],
             added_lines=file_change["added_lines"],
             removed_lines=file_change["removed_lines"],
             google_token=google_token,
