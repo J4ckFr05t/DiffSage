@@ -7,7 +7,7 @@ import os
 import time
 
 # Function to call Gemini and generate summary with retry logic
-def summarize_change_with_retry(message, added_lines, removed_lines, google_token=None, retries=3, prompt_intro=None):
+def summarize_change_with_retry(message, file_path, added_lines, removed_lines, google_token=None, retries=3, prompt_intro=None):
     #print("[DEBUG] Google token in summarize_change_with_retry:", google_token)
 
     # ✅ Configure token ONCE
@@ -22,6 +22,7 @@ def summarize_change_with_retry(message, added_lines, removed_lines, google_toke
                 prompt = (
                     prompt_intro.strip() + "\n\n" +
                     f"Commit message(s): {message}\n\n" +
+                    f"File Path: {file_path}\n" +
                     f"Added lines:\n" + "\n".join(added_lines or []) + "\n\n" +
                     f"Removed lines:\n" + "\n".join(removed_lines or [])
                 )
@@ -199,6 +200,7 @@ def parse_diff_by_commit(commits, task=None, google_token=None, prompt_intro=Non
         file_change = item["files_changed"][0]
         item["summary"] = summarize_change_with_retry(
             message=item["message"],
+            file_path=file_change["file_path"],
             added_lines=file_change["added_lines"],
             removed_lines=file_change["removed_lines"],
             google_token=google_token,
