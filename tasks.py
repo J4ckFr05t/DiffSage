@@ -23,7 +23,7 @@ def analyze_pr_task(self, pr_commits_and_metadata):
                 "state": pr_data["state"],
                 "url": pr_commits_and_metadata.get("url", "-")
             },
-            "commits": grouped_data
+            "commits": format_for_frontend(grouped_data)
         }
 
         return summary
@@ -31,3 +31,26 @@ def analyze_pr_task(self, pr_commits_and_metadata):
     except Exception as e:
         self.update_state(state="FAILURE", meta={"exc": str(e)})
         raise e
+    
+def format_for_frontend(grouped_data):
+    formatted_commits = []
+
+    for file in grouped_data:
+        file_path = file["file_path"]
+        summary = file.get("summary", "No summary provided.")
+        commits = file.get("commits", [])
+
+        formatted_commits.append({
+            "summary": summary,
+            "files_changed": [
+                {
+                    "file_path": file_path,
+                    "change_type": commit.get("change_type"),
+                    "added_lines": commit.get("added_lines", []),
+                    "removed_lines": commit.get("removed_lines", [])
+                }
+                for commit in commits
+            ]
+        })
+
+    return formatted_commits

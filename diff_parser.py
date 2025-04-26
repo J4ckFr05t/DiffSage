@@ -74,6 +74,74 @@ def summarize_change_with_retry(message, file_path, change_type, added_lines, re
         google_token=google_token, retries=1
     )
 
+def summarize_change_with_retry_new(file_path, commits, google_token=None, retries=3, prompt_intro=None):
+    import re, time
+    import google.generativeai as genai
+
+    genai.configure(api_key=google_token)
+    model = genai.GenerativeModel("gemini-2.0-flash")
+
+    attempt = 0
+    while attempt < retries:
+        try:
+            # 🔧 Build prompt content
+            prompt_parts = [f"Summarize the following changes made to the file: {file_path}\n"]
+            for i, commit in enumerate(commits, start=1):
+                message = commit.get("message", "")
+                change_type = commit.get("change_type", "")
+                added = "\n".join(commit.get("added_lines", []) or [])
+                removed = "\n".join(commit.get("removed_lines", []) or [])
+                prompt_parts.append(
+                    f"Commit #{i}:\n"
+                    f"Message: {message}\n"
+                    f"Change Type: {change_type}\n"
+                    f"Added lines:\n{added if added else '[None]'}\n"
+                    f"Removed lines:\n{removed if removed else '[None]'}\n"
+                    f"---"
+                )
+
+            full_prompt = "\n\n".join(prompt_parts)
+            if prompt_intro:
+                full_prompt = f"{prompt_intro.strip()}\n\n{full_prompt}"
+
+            response = model.generate_content(
+                full_prompt,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.3,
+                    max_output_tokens=300
+                )
+            )
+            return response.text.strip()
+
+        except Exception as e:
+            error_message = str(e)
+            print(error_message)
+
+            if "429" in error_message and "retry_delay" in error_message:
+                match = re.search(r'retry_delay\s*{\s*seconds\s*:\s*(\d+)', error_message)
+                if match:
+                    retry_delay = int(match.group(1))
+                    print(f"Quota exceeded. Retrying in {retry_delay + 1} seconds...")
+                    time.sleep(retry_delay + 1)
+                    attempt += 1
+                    continue
+                else:
+                    print("Couldn't parse retry delay.")
+                    break
+            else:
+                return f"Error generating summary: {e}"
+
+    # 🔁 Final retry after cooldown
+    print("Retries exhausted. Waiting 1 minute before retrying once more...")
+    time.sleep(60)
+    return summarize_change_with_retry(
+        file_path=file_path,
+        commits=commits,
+        google_token=google_token,
+        retries=1,
+        prompt_intro=prompt_intro
+    )
+
 # Group changes by file path without loosing context
 def regroup_by_file_path_with_commit_context(data):
     grouped = defaultdict(lambda: {"file_path": "", "commits": []})
@@ -98,7 +166,6 @@ def regroup_by_file_path_with_commit_context(data):
 # Group changes by file path
 def regroup_by_file_path(data, message_separator=" || ", line_separator="---"):
     grouped = {}
-    print("Data:", data)
     for entry in data:
         message = entry["message"]
         for file in entry["files_changed"]:
@@ -207,8 +274,7 @@ def parse_diff_by_commit(commits, task=None, google_token=None, prompt_intro=Non
     }
     exploded.sort(key=lambda e: change_type_priority.get(e['files_changed'][0]['change_type'], 99))
 
-    grouped_data_test = regroup_by_file_path_with_commit_context(exploded)
-    grouped_data = regroup_by_file_path(exploded)
+    grouped_data = regroup_by_file_path_with_commit_context(exploded)
 
     print("Number of Files to be process:", len(grouped_data))
 
@@ -220,16 +286,15 @@ def parse_diff_by_commit(commits, task=None, google_token=None, prompt_intro=Non
                 'status': f'Processed {index} of {len(grouped_data)}'
             })
 
-        file_change = item["files_changed"][0]
-        item["summary"] = summarize_change_with_retry(
-            message=item["message"],
-            file_path=file_change["file_path"],
-            change_type=file_change["change_type"],
-            added_lines=file_change["added_lines"],
-            removed_lines=file_change["removed_lines"],
+        item["summary"] = summarize_change_with_retry_new(
+            file_path=item["file_path"],
+            commits=item["commits"],
             google_token=google_token,
             prompt_intro=prompt_intro
         )
+
+        print("New Data:", grouped_data)
+
 
         if index % 15 == 0:
             print(f"Processed {index}/{len(grouped_data)} items. Sleeping for 60 seconds to avoid hitting rate limits.")
