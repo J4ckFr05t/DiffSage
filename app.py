@@ -370,7 +370,6 @@ def summarize():
             user_token = current_user.github_api_token
             parsed = parse_github_url(pr_url)
             pr_data = get_github_pr_data(parsed, user_token)
-            print(pr_data)
             if "error" in pr_data:
                 print(f"[ERROR] GitHub API returned an error: {pr_data['error']}")
                 return jsonify({"error": "There was an issue with your GitHub token. Please make sure your token is correct and try again."}), 400  # Stop execution and return the error

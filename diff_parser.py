@@ -106,9 +106,6 @@ def regroup_by_file_path(data, message_separator=" || ", line_separator="---"):
 
     return list(grouped.values())
 
-# Main parsing function
-from unidiff import PatchSet, UnidiffParseError
-
 def parse_diff_by_commit(commits, task=None, google_token=None, prompt_intro=None):
     result = []
     for commit in commits:
@@ -216,8 +213,6 @@ def parse_diff_by_commit(commits, task=None, google_token=None, prompt_intro=Non
             time.sleep(60)
         else:
             print(f"Processed {index}/{len(grouped_data)} items.")
-
-    print(grouped_data)
 
     return grouped_data
 
