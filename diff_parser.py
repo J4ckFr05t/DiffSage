@@ -1,4 +1,5 @@
 from unidiff import PatchSet, UnidiffParseError
+from collections import defaultdict
 from io import StringIO
 import json
 import copy
@@ -73,10 +74,31 @@ def summarize_change_with_retry(message, file_path, change_type, added_lines, re
         google_token=google_token, retries=1
     )
 
+# Group changes by file path without loosing context
+def regroup_by_file_path_with_commit_context(data):
+    grouped = defaultdict(lambda: {"file_path": "", "commits": []})
+
+    for entry in data:
+        message = entry["message"]
+        for file in entry["files_changed"]:
+            path = file["file_path"]
+            grouped[path]["file_path"] = path
+            grouped[path]["commits"].append({
+                "message": message,
+                "change_type": file["change_type"],
+                "is_new_file": file["is_new_file"],
+                "added_lines": copy.deepcopy(file["added_lines"]),
+                "removed_lines": copy.deepcopy(file["removed_lines"])
+            })
+    
+    print("New Data by File path:", list(grouped.values()))
+
+    return list(grouped.values())
+
 # Group changes by file path
 def regroup_by_file_path(data, message_separator=" || ", line_separator="---"):
     grouped = {}
-
+    print("Data:", data)
     for entry in data:
         message = entry["message"]
         for file in entry["files_changed"]:
@@ -185,6 +207,7 @@ def parse_diff_by_commit(commits, task=None, google_token=None, prompt_intro=Non
     }
     exploded.sort(key=lambda e: change_type_priority.get(e['files_changed'][0]['change_type'], 99))
 
+    grouped_data_test = regroup_by_file_path_with_commit_context(exploded)
     grouped_data = regroup_by_file_path(exploded)
 
     print("Number of Files to be process:", len(grouped_data))
