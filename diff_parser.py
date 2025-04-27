@@ -88,8 +88,6 @@ def regroup_by_file_path_with_commit_context(data):
                 "added_lines": copy.deepcopy(file["added_lines"]),
                 "removed_lines": copy.deepcopy(file["removed_lines"])
             })
-    
-    print("New Data by File path:", list(grouped.values()))
 
     return list(grouped.values())
 
