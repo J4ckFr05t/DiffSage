@@ -1,48 +1,44 @@
 from unidiff import PatchSet, UnidiffParseError
+from collections import defaultdict
 from io import StringIO
 import json
 import copy
 import google.generativeai as genai
 import os
-import time
+import re, time
 
-# Function to call Gemini and generate summary with retry logic
-def summarize_change_with_retry(message, file_path, change_type, added_lines, removed_lines, google_token=None, retries=3, prompt_intro=None):
-    #print("[DEBUG] Google token in summarize_change_with_retry:", google_token)
-
-    # ✅ Configure token ONCE
+def summarize_change_with_retry_new(file_path, commits, google_token=None, retries=3, prompt_intro=None):
     genai.configure(api_key=google_token)
-
     model = genai.GenerativeModel("gemini-2.0-flash")
 
     attempt = 0
     while attempt < retries:
         try:
-            if prompt_intro:
-                prompt = (
-                    prompt_intro.strip() + "\n\n" +
-                    f"Commit message(s): {message}\n\n" +
-                    f"File Path: {file_path}\n" +
-                    f"Change Type: {change_type}\n" +
-                    f"Added lines:\n" + "\n".join(added_lines or []) + "\n\n" +
-                    f"Removed lines:\n" + "\n".join(removed_lines or [])
-                )
-            else:
-                prompt = (
-                    "Here is a code change. Based on the added and removed lines, and the commit messages, "
-                    "provide a brief natural language description of what was changed and why. Be concise but informative.\n\n"
-                    f"Commit message(s): {message}\n\n" +
-                    f"File Path: {file_path}\n" +
-                    f"Change Type: {change_type}\n" +
-                    f"Added lines:\n" + "\n".join(added_lines or []) + "\n\n" +
-                    f"Removed lines:\n" + "\n".join(removed_lines or [])
+            # 🔧 Build prompt content
+            prompt_parts = [f"Summarize the following changes made to the file: {file_path}\n"]
+            for i, commit in enumerate(commits, start=1):
+                message = commit.get("message", "")
+                change_type = commit.get("change_type", "")
+                added = "\n".join(commit.get("added_lines", []) or [])
+                removed = "\n".join(commit.get("removed_lines", []) or [])
+                prompt_parts.append(
+                    f"Commit #{i}:\n"
+                    f"Message: {message}\n"
+                    f"Change Type: {change_type}\n"
+                    f"Added lines:\n{added if added else '[None]'}\n"
+                    f"Removed lines:\n{removed if removed else '[None]'}\n"
+                    f"---"
                 )
 
-            response = genai.GenerativeModel("gemini-2.0-flash").generate_content(
-                prompt,
+            full_prompt = "\n\n".join(prompt_parts)
+            if prompt_intro:
+                full_prompt = f"{prompt_intro.strip()}\n\n{full_prompt}"
+
+            response = model.generate_content(
+                full_prompt,
                 generation_config=genai.types.GenerationConfig(
                     temperature=0.3,
-                    max_output_tokens=200
+                    max_output_tokens=300
                 )
             )
             return response.text.strip()
@@ -65,18 +61,41 @@ def summarize_change_with_retry(message, file_path, change_type, added_lines, re
             else:
                 return f"Error generating summary: {e}"
 
-    # 🔁 Final retry after 1 min, must include google_token
+    # 🔁 Final retry after cooldown
     print("Retries exhausted. Waiting 1 minute before retrying once more...")
     time.sleep(60)
     return summarize_change_with_retry(
-        message, added_lines, removed_lines,
-        google_token=google_token, retries=1
+        file_path=file_path,
+        commits=commits,
+        google_token=google_token,
+        retries=1,
+        prompt_intro=prompt_intro
     )
+
+# Group changes by file path without loosing context
+def regroup_by_file_path_with_commit_context(data):
+    grouped = defaultdict(lambda: {"file_path": "", "commits": []})
+
+    for entry in data:
+        message = entry["message"]
+        for file in entry["files_changed"]:
+            path = file["file_path"]
+            grouped[path]["file_path"] = path
+            grouped[path]["commits"].append({
+                "message": message,
+                "change_type": file["change_type"],
+                "is_new_file": file["is_new_file"],
+                "added_lines": copy.deepcopy(file["added_lines"]),
+                "removed_lines": copy.deepcopy(file["removed_lines"])
+            })
+    
+    print("New Data by File path:", list(grouped.values()))
+
+    return list(grouped.values())
 
 # Group changes by file path
 def regroup_by_file_path(data, message_separator=" || ", line_separator="---"):
     grouped = {}
-
     for entry in data:
         message = entry["message"]
         for file in entry["files_changed"]:
@@ -185,7 +204,7 @@ def parse_diff_by_commit(commits, task=None, google_token=None, prompt_intro=Non
     }
     exploded.sort(key=lambda e: change_type_priority.get(e['files_changed'][0]['change_type'], 99))
 
-    grouped_data = regroup_by_file_path(exploded)
+    grouped_data = regroup_by_file_path_with_commit_context(exploded)
 
     print("Number of Files to be process:", len(grouped_data))
 
@@ -197,16 +216,15 @@ def parse_diff_by_commit(commits, task=None, google_token=None, prompt_intro=Non
                 'status': f'Processed {index} of {len(grouped_data)}'
             })
 
-        file_change = item["files_changed"][0]
-        item["summary"] = summarize_change_with_retry(
-            message=item["message"],
-            file_path=file_change["file_path"],
-            change_type=file_change["change_type"],
-            added_lines=file_change["added_lines"],
-            removed_lines=file_change["removed_lines"],
+        item["summary"] = summarize_change_with_retry_new(
+            file_path=item["file_path"],
+            commits=item["commits"],
             google_token=google_token,
             prompt_intro=prompt_intro
         )
+
+        print("New Data:", grouped_data)
+
 
         if index % 15 == 0:
             print(f"Processed {index}/{len(grouped_data)} items. Sleeping for 60 seconds to avoid hitting rate limits.")
