@@ -5,79 +5,9 @@ import json
 import copy
 import google.generativeai as genai
 import os
-import time
-
-# Function to call Gemini and generate summary with retry logic
-def summarize_change_with_retry(message, file_path, change_type, added_lines, removed_lines, google_token=None, retries=3, prompt_intro=None):
-    #print("[DEBUG] Google token in summarize_change_with_retry:", google_token)
-
-    # ✅ Configure token ONCE
-    genai.configure(api_key=google_token)
-
-    model = genai.GenerativeModel("gemini-2.0-flash")
-
-    attempt = 0
-    while attempt < retries:
-        try:
-            if prompt_intro:
-                prompt = (
-                    prompt_intro.strip() + "\n\n" +
-                    f"Commit message(s): {message}\n\n" +
-                    f"File Path: {file_path}\n" +
-                    f"Change Type: {change_type}\n" +
-                    f"Added lines:\n" + "\n".join(added_lines or []) + "\n\n" +
-                    f"Removed lines:\n" + "\n".join(removed_lines or [])
-                )
-            else:
-                prompt = (
-                    "Here is a code change. Based on the added and removed lines, and the commit messages, "
-                    "provide a brief natural language description of what was changed and why. Be concise but informative.\n\n"
-                    f"Commit message(s): {message}\n\n" +
-                    f"File Path: {file_path}\n" +
-                    f"Change Type: {change_type}\n" +
-                    f"Added lines:\n" + "\n".join(added_lines or []) + "\n\n" +
-                    f"Removed lines:\n" + "\n".join(removed_lines or [])
-                )
-
-            response = genai.GenerativeModel("gemini-2.0-flash").generate_content(
-                prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.3,
-                    max_output_tokens=200
-                )
-            )
-            return response.text.strip()
-
-        except Exception as e:
-            error_message = str(e)
-            print(error_message)
-
-            if "429" in error_message and "retry_delay" in error_message:
-                match = re.search(r'retry_delay\s*{\s*seconds\s*:\s*(\d+)', error_message)
-                if match:
-                    retry_delay = int(match.group(1))
-                    print(f"Quota exceeded. Retrying in {retry_delay + 1} seconds...")
-                    time.sleep(retry_delay + 1)
-                    attempt += 1
-                    continue
-                else:
-                    print("Couldn't parse retry delay.")
-                    break
-            else:
-                return f"Error generating summary: {e}"
-
-    # 🔁 Final retry after 1 min, must include google_token
-    print("Retries exhausted. Waiting 1 minute before retrying once more...")
-    time.sleep(60)
-    return summarize_change_with_retry(
-        message, added_lines, removed_lines,
-        google_token=google_token, retries=1
-    )
+import re, time
 
 def summarize_change_with_retry_new(file_path, commits, google_token=None, retries=3, prompt_intro=None):
-    import re, time
-    import google.generativeai as genai
-
     genai.configure(api_key=google_token)
     model = genai.GenerativeModel("gemini-2.0-flash")
 
