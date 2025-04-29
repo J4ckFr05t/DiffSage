@@ -221,9 +221,6 @@ def parse_diff_by_commit(commits, task=None, google_token=None, prompt_intro=Non
             prompt_intro=prompt_intro
         )
 
-        print("New Data:", grouped_data)
-
-
         if index % 15 == 0:
             print(f"Processed {index}/{len(grouped_data)} items. Sleeping for 60 seconds to avoid hitting rate limits.")
             time.sleep(60)

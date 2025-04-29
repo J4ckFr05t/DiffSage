@@ -556,16 +556,23 @@ def download_excel():
             repo = "unknown_repo"
             pr_number = "unknown_pr"
 
+        seen_files = set()
+
         for i in range(count):
             reason = request.form.get(f"reason_{i}")
             file_count = int(request.form.get(f"file_count_{i}"))
 
             for j in range(file_count):
                 file_name = request.form.get(f"file_{i}_{j}")
-                rows.append({
-                    "File Name": file_name,
-                    "Reason to Change": reason
-                })
+                key = (file_name, reason)
+
+                if key not in seen_files:
+                    seen_files.add(key)
+                    rows.append({
+                        "File Name": file_name,
+                        "Reason to Change": reason
+                    })
+
 
         df = pd.DataFrame(rows)
 
