@@ -14,12 +14,15 @@ import pandas as pd
 import json
 from urllib.parse import urlparse, unquote
 from utils.encryption import encrypt_token, decrypt_token
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 app = Flask(__name__)
 
 app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "dev-secret-key")
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URL", "sqlite:///users.db")
 db = SQLAlchemy(app)
 
 login_manager = LoginManager()
@@ -29,24 +32,23 @@ login_manager.init_app(app)
 class User(UserMixin, db.Model):
     __tablename__ = "users"
 
-    id = db.Column(db.Integer, primary_key=True)  # Unique ID
-    email = db.Column(db.String(150), unique=True, nullable=False)  # User's email (used for login)
-    password = db.Column(db.String(150), nullable=False)  # Hashed password
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(150), unique=True, nullable=False)
+
+    # 🔐 Hashed passwords can exceed 150 chars (scrypt, bcrypt, etc.)
+    password = db.Column(db.Text, nullable=False)
+
     is_admin = db.Column(db.Boolean, default=False)
     must_change_password = db.Column(db.Boolean, default=False)
-    github_api_token = db.Column(db.String(255))
-    google_api_token = db.Column(db.String(255))
-    gitlab_api_token = db.Column(db.String(255))
-    bitbucket_username = db.Column(db.String(255))
-    bitbucket_app_password = db.Column(db.String(255))
-    azdevops_api_token = db.Column(db.String(255))
-    _github_api_token = db.Column("github_api_token", db.String(255))
-    _google_api_token = db.Column("google_api_token", db.String(255))
-    _gitlab_api_token = db.Column("gitlab_api_token", db.String(255))
-    _bitbucket_username = db.Column("bitbucket_username", db.String(255))
-    _bitbucket_app_password = db.Column("bitbucket_app_password", db.String(255))
-    _azdevops_api_token = db.Column("azdevops_api_token", db.String(255))
     locked = db.Column(db.Boolean, default=False)
+
+    # 🧪 Encrypted sensitive fields — stored as base64 or ciphertext, use Text
+    _github_api_token = db.Column("github_api_token", db.Text)
+    _google_api_token = db.Column("google_api_token", db.Text)
+    _gitlab_api_token = db.Column("gitlab_api_token", db.Text)
+    _bitbucket_username = db.Column("bitbucket_username", db.Text)
+    _bitbucket_app_password = db.Column("bitbucket_app_password", db.Text)
+    _azdevops_api_token = db.Column("azdevops_api_token", db.Text)
 
     @property
     def github_api_token(self):
