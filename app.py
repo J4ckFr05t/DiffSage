@@ -21,8 +21,16 @@ load_dotenv()
 
 app = Flask(__name__)
 
-app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "dev-secret-key")
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URL", "sqlite:///users.db")
+db_url = os.getenv("DATABASE_URL")
+if not db_url:
+    db_url = "sqlite:///users.db"
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+
+secret_key = os.getenv("SECRET_KEY")
+app.config['SECRET_KEY'] = secret_key if secret_key else "dev-secret-key"
+
 db = SQLAlchemy(app)
 
 login_manager = LoginManager()

@@ -4,9 +4,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Use env vars with fallback
-broker_url = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
-result_backend = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
+env_broker = os.getenv("CELERY_BROKER_URL")
+broker_url = env_broker if env_broker else "redis://redis:6379/0"
+
+env_backend = os.getenv("CELERY_RESULT_BACKEND")
+result_backend = env_backend if env_backend else "redis://redis:6379/0"
 
 def make_celery(app_name=__name__):
     return Celery(
