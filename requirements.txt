@@ -10,3 +10,5 @@ XlsxWriter
 pandas
 google-generativeai
 psycopg2-binary
+itsdangerous
+flask-mail
