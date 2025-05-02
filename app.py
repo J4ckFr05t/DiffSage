@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, send_file, jsonify, redirect,
 from flask_mail import Mail, Message
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_wtf import CSRFProtect
 from werkzeug.security import generate_password_hash, check_password_hash
 from scm_utils import get_github_pr_data, get_gitlab_pr_data, get_bitbucket_pr_data, get_azure_devops_pr_data
 from utils.token_utils import generate_reset_token, verify_reset_token
@@ -20,6 +21,8 @@ load_dotenv()
 
 
 app = Flask(__name__)
+
+csrf = CSRFProtect(app)
 
 app.config["MAIL_SERVER"] = "smtp.gmail.com"
 app.config["MAIL_PORT"] = 587

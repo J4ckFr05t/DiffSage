@@ -269,9 +269,13 @@
         const summaryType = document.getElementById("summary-type").value;
         const selectedPlatform = document.getElementById('platform-select').value;
 
+        const csrf_token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
         const response = await fetch("/summarize", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrf_token // ✅ include token
+          },
           body: JSON.stringify({
             pr_url: prUrl,
             selected_prompt: summaryType,

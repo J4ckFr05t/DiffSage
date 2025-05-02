@@ -248,6 +248,7 @@
     <div class="container">
         <h1>Login to Diff<span style="color: grey;">Sage</span></h1>
         <form method="POST" action="/login" class="form-box">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <label for="email">Email</label>
             <input type="text" id="email" name="email" required>
 

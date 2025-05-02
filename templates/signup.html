@@ -250,7 +250,7 @@
     <div class="container">
         <h1>Sign Up for Diff<span style="color: grey;">Sage</span></h1>
         <form method="POST" action="/signup" class="form-box">
-
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <label for="email">Email</label>
             <input type="email" id="email" name="email" required>
 

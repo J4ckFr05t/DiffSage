@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <!-- Favicon -->
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicons/favicon-32x32.png') }}">
     <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicons/favicon-16x16.png') }}">
@@ -623,6 +624,7 @@
             <h2>Account Info</h2>
             <!-- Update GitHub Token -->
             <form action="/update_github_token" method="post" class="form-section">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <h3>Update GitHub Token</h3>
             
                 <label>GitHub Personal Access Token</label>
@@ -633,6 +635,7 @@
             
               <!-- Update Google API Token -->
               <form action="/update_google_token" method="post" class="form-section">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <h3>Update Google API Token</h3>
             
                 <label>Google API Token</label>
@@ -643,6 +646,7 @@
 
             <!-- Update GitLab API Token -->
             <form action="/update_gitlab_token" method="post" class="form-section">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <h3>Update GitLab API Token</h3>
                 <label>GitLab API Token</label>
                 <input type="password" name="gitlab_api_token" placeholder="glpat-..." required />
@@ -651,6 +655,7 @@
 
             <!-- Update Bitbucket Username and App Password -->
             <form action="/update_bitbucket_credentials" method="post" class="form-section">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <h3>Update Bitbucket Credentials</h3>
                 <label>Bitbucket Username</label>
                 <input type="text" name="bitbucket_username" placeholder="bitbucket_username" required />
@@ -661,6 +666,7 @@
             
             <!-- Update GitLab API Token -->
             <form action="/update_azdevops_token" method="post" class="form-section">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <h3>Update Azure DevOps API Token</h3>
                 <label>Azure DevOps API Token</label>
                 <input type="password" name="azdevops_api_token" placeholder="EeBg-..." required />
@@ -669,6 +675,7 @@
 
             <!-- Change Password -->
             <form action="/update_password" method="post" class="form-section">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <h3>Change Password</h3>
           
               <label>Current Password</label>
@@ -698,6 +705,7 @@
                 <h3>Confirm Account Deletion</h3>
                 <p>Are you absolutely sure you want to delete your account? This action cannot be undone.</p>
                 <form action="/delete_account" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-danger">Yes, Delete My Account</button>
                     <button type="button" onclick="closeDeleteModal()" class="btn">Cancel</button>
                 </form>
@@ -721,11 +729,13 @@
                         <div style="margin-top: 0.5rem;">
                             {% if user.id != current_user.id %}
                             <form method="POST" action="{{ url_for('delete_user', user_id=user.id) }}" style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="action-btn delete-btn" onclick="return confirm('Delete user {{ user.email }}?')">
                                     🗑️ Delete
                                 </button>
                             </form>
                             <form method="POST" action="{{ url_for('toggle_lock_user', user_id=user.id) }}" style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="action-btn" style="margin-left: 0.5rem;">
                                     {% if user.locked %} 🔓 Unlock {% else %} 🔒 Lock {% endif %}
                                 </button>
@@ -746,6 +756,7 @@
             <div class="account-info-section">
                 <h2>Prompt Configurator</h2>
                 <form action="/configure_prompt" method="post" class="form-section">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <h3>Set Up a Custom Prompt</h3>
 
                     <div class="select-wrapper">
@@ -778,6 +789,7 @@
                               <h4 class="prompt-title">{{ prompt.prompt_name }}</h4>
                               <form method="POST" action="{{ url_for('delete_prompt') }}">
                                 <input type="hidden" name="prompt_name" value="{{ prompt.prompt_name }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="prompt-delete-btn" title="Delete Prompt">✕</button>
                               </form>
                             </div>
