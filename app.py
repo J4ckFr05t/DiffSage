@@ -2,6 +2,10 @@ from flask import Flask, render_template, request, send_file, jsonify, redirect,
 from flask_mail import Mail, Message
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_wtf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask import render_template
 from werkzeug.security import generate_password_hash, check_password_hash
 from scm_utils import get_github_pr_data, get_gitlab_pr_data, get_bitbucket_pr_data, get_azure_devops_pr_data
 from utils.token_utils import generate_reset_token, verify_reset_token
@@ -20,6 +24,18 @@ load_dotenv()
 
 
 app = Flask(__name__)
+
+redis_url = os.getenv("REDIS_URL")
+if not redis_url:
+    raise RuntimeError("REDIS_URL must be set in .env")
+
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    storage_uri=redis_url
+)
+
+csrf = CSRFProtect(app)
 
 app.config["MAIL_SERVER"] = "smtp.gmail.com"
 app.config["MAIL_PORT"] = 587
@@ -169,8 +185,13 @@ def signup():
 
     return render_template("signup.html")
 
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    flash("Too many login attempts. Please try again in a minute.", "danger")
+    return render_template("login.html"), 429
 
 @app.route("/login", methods=["GET", "POST"])
+@limiter.limit("5 per minute")
 def login():
     if request.method == "POST":
         email = request.form.get("email")
