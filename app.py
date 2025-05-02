@@ -4,9 +4,6 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from werkzeug.security import generate_password_hash, check_password_hash
 from scm_utils import get_github_pr_data, get_gitlab_pr_data, get_bitbucket_pr_data, get_azure_devops_pr_data
 import google.generativeai as genai
-from celery.result import AsyncResult
-from tasks import analyze_pr_task
-from celery_worker import celery
 import os
 import re
 import io
@@ -14,12 +11,16 @@ import pandas as pd
 import json
 from urllib.parse import urlparse, unquote
 from utils.encryption import encrypt_token, decrypt_token
+import requests
 from dotenv import load_dotenv
 
 load_dotenv()
 
 
 app = Flask(__name__)
+
+CLOUDRUN_ANALYZE_URL = os.getenv("CLOUDRUN_ANALYZE_URL", "http://localhost:8080/analyze")  # local test fallback
+CLOUDRUN_STATUS_URL = os.getenv("CLOUDRUN_STATUS_URL", "http://localhost:8080/status")
 
 db_url = os.getenv("DATABASE_URL")
 if not db_url:
@@ -345,7 +346,6 @@ def update_azdevops_token():
 @login_required
 def summarize():
     data = request.get_json()
-    #print("Received data:", data)
 
     selected_prompt = data.get("selected_prompt", "default")
     selected_platform = data.get("selected_platform", "github")
@@ -358,20 +358,17 @@ def summarize():
             return jsonify({"error": "Selected prompt not found."}), 400
         prompt_intro = prompt_obj.prompt_intro
 
-    # use prompt_obj.prompt_intro or other fields as needed
-
     pr_url = data.get("pr_url")
     if not pr_url:
         return jsonify({"error": "Missing PR URL"}), 400
-    
+
     if not current_user.google_api_token:
         return jsonify({
             "error": "Google API tokens are required. Please set them up in your Account Info."
         }), 400
-    
+
     if not validate_google_token(current_user.google_api_token):
         return jsonify({"error": "Invalid Google token. Please make sure your token is correct and try again."}), 400
-
 
     try:
         print("Parsing PR URL...")
@@ -380,50 +377,46 @@ def summarize():
             user_token = current_user.github_api_token
             parsed = parse_github_url(pr_url)
             pr_data = get_github_pr_data(parsed, user_token)
-            if "error" in pr_data:
-                print(f"[ERROR] GitHub API returned an error: {pr_data['error']}")
-                return jsonify({"error": "There was an issue with your GitHub token. Please make sure your token is correct and try again."}), 400  # Stop execution and return the error
         elif selected_platform == "gitlab":
             user_token = current_user.gitlab_api_token
             parsed = parse_gitlab_url(pr_url)
             pr_data = get_gitlab_pr_data(parsed, user_token)
-            if "error" in pr_data:
-                print(f"[ERROR] GitHub API returned an error: {pr_data['error']}")
-                return jsonify({"error": "There was an issue with your GitLab token. Please make sure your token is correct and try again."}), 400  # Stop execution and return the error
         elif selected_platform == "bitbucket":
             user_token = current_user.bitbucket_app_password
             bb_username = current_user.bitbucket_username
             parsed = parse_bitbucket_url(pr_url)
             pr_data = get_bitbucket_pr_data(parsed, bb_username, user_token)
-            if "error" in pr_data:
-                print(f"[ERROR] GitHub API returned an error: {pr_data['error']}")
-                return jsonify({"error": "There was an issue with your Bitbucket Username or App Password. Please make sure your token is correct and try again."}), 400  # Stop execution and return the error
         elif selected_platform == "azdevops":
             user_token = current_user.azdevops_api_token
             parsed = parse_azure_devops_url(pr_url)
             pr_data = get_azure_devops_pr_data(parsed, user_token)
-            if "error" in pr_data:
-                #print(f"[ERROR] Azure DevOps API returned an error: {pr_data['error']}")
-                return jsonify({"error": "There was an issue with your Azure DevOps API Token. Please make sure your token is correct and try again."}), 400  # Stop execution and return the error
         else:
             return jsonify({"error": "Unsupported platform selected."}), 400
 
+        if "error" in pr_data:
+            return jsonify({"error": pr_data["error"]}), 400
+
         print("Fetched PR data.")
 
-        task = analyze_pr_task.apply_async(args=[{
+        # ✅ Call Cloud Run async task
+        payload = {
             "pr_data": pr_data,
             "url": pr_url,
             "google_token": current_user.google_api_token,
             "prompt_intro": prompt_intro
-        }])
-        print("Task ID:", task.id)
+        }
 
-        return jsonify({"task_id": task.id})
+        response = requests.post(CLOUDRUN_ANALYZE_URL, json=payload)
+
+        if response.status_code == 200:
+            return jsonify(response.json())  # includes task_id
+        else:
+            return jsonify({"error": "Cloud Run task submission failed.", "details": response.text}), 500
 
     except Exception as e:
         print("Error during summarization:", e)
         return jsonify({"error": str(e)}), 500
-    
+
 @app.route("/configure_prompt", methods=["POST"])
 @login_required
 def configure_prompt():
@@ -517,39 +510,11 @@ def root_redirect():
 
 @app.route("/task_status/<task_id>")
 def task_status(task_id):
-    task = AsyncResult(task_id, app=celery)
-
-    # print(f"Task {task_id} state: {task.state}")
-    # print("Meta:", task.info)
-
-    if task.state == 'PENDING':
-        response = {
-            'state': task.state,
-            'progress': 0
-        }
-    elif task.state == 'PROGRESS':
-        progress = task.info or {}
-        current = progress.get('current', 0)
-        total = progress.get('total', 1)
-        response = {
-            'state': task.state,
-            'progress': int((current / total) * 100),
-            'details': progress.get('status', '')
-        }
-    elif task.state == 'SUCCESS':
-        response = {
-            'state': task.state,
-            'progress': 100,
-            'result': task.result
-        }
-    else:
-        response = {
-            'state': task.state,
-            'error': str(task.info)
-        }
-
-    return jsonify(response)
-
+    try:
+        response = requests.get(f"{CLOUDRUN_STATUS_URL}/{task_id}")
+        return jsonify(response.json())
+    except Exception as e:
+        return jsonify({"state": "FAILURE", "error": str(e)}), 500
 
 @app.route("/download_excel", methods=["POST"])
 def download_excel():
@@ -722,4 +687,5 @@ if __name__ == "__main__":
             db.session.commit()
             print(f"[INIT] Admin account created: {admin_email} / admin")
 
-    app.run(host="0.0.0.0", port=3000, debug=True)
+    # 👇 Make port dynamic (important for Cloud Run!)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)), debug=False)

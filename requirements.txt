@@ -4,11 +4,9 @@ Flask-SQLAlchemy
 PyGithub
 unidiff
 requests
-dotenv
+python-dotenv
 openai
-xlsxwriter
+XlsxWriter
 pandas
 google-generativeai
-celery[redis]
-redis
-psycopg2
+psycopg2-binary
