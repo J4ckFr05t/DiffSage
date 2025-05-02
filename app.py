@@ -1,8 +1,10 @@
 from flask import Flask, render_template, request, send_file, jsonify, redirect, url_for, send_file, jsonify, flash, session
+from flask_mail import Mail, Message
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from scm_utils import get_github_pr_data, get_gitlab_pr_data, get_bitbucket_pr_data, get_azure_devops_pr_data
+from utils.token_utils import generate_reset_token, verify_reset_token
 import google.generativeai as genai
 import os
 import re
@@ -18,6 +20,15 @@ load_dotenv()
 
 
 app = Flask(__name__)
+
+app.config["MAIL_SERVER"] = "smtp.gmail.com"
+app.config["MAIL_PORT"] = 587
+app.config["MAIL_USE_TLS"] = True
+app.config["MAIL_USERNAME"] = os.environ.get("MAIL_USERNAME")
+app.config["MAIL_PASSWORD"] = os.environ.get("MAIL_PASSWORD")
+app.config["MAIL_DEFAULT_SENDER"] = os.environ.get("MAIL_DEFAULT_SENDER")
+
+mail = Mail(app)
 
 CLOUDRUN_ANALYZE_URL = os.getenv("CLOUDRUN_ANALYZE_URL", "http://localhost:8080/analyze")  # local test fallback
 CLOUDRUN_STATUS_URL = os.getenv("CLOUDRUN_STATUS_URL", "http://localhost:8080/status")
@@ -490,6 +501,57 @@ def logout():
     flash("Logged out successfully.", "success")
     return redirect(url_for("login"))
 
+@app.route('/forgot-password', methods=["GET", "POST"])
+def forgot_password():
+    if request.method == "POST":
+        email = request.form.get("email")
+        user = User.query.filter_by(email=email).first()
+        if user:
+            token = generate_reset_token(email, app.config["SECRET_KEY"])
+            reset_url = url_for("reset_password", token=token, _external=True)
+
+            # Log the reset link (simulate email for now)
+            #print(f"[RESET LINK] {reset_url}")
+
+            msg = Message("Reset Your Password - Diffsage", recipients=[email])
+            msg.body = f"""Hi,
+
+            You requested a password reset for your Diffsage account.
+            Click the link below to reset your password:
+
+            {reset_url}
+
+            If you didn't request this, you can ignore this email.
+            """
+            mail.send(msg)
+
+            flash("Reset link sent to your email.")
+        else:
+            flash("If that email exists, a reset link has been sent.")
+        return redirect(url_for("login"))
+    return render_template("forgot_password.html")
+
+@app.route('/reset-password/<token>', methods=["GET", "POST"])
+def reset_password(token):
+    email = verify_reset_token(token, app.config["SECRET_KEY"])
+    if not email:
+        flash("Invalid or expired reset link.")
+        return redirect(url_for("login"))
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        flash("User not found.")
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        new_password = request.form.get("password")
+        user.password = generate_password_hash(new_password)
+        user.must_change_password = False
+        db.session.commit()
+        flash("Password has been updated.")
+        return redirect(url_for("login"))
+
+    return render_template("reset_password.html", email=email)
 
 @app.route("/result/<task_id>")
 def show_result(task_id):
