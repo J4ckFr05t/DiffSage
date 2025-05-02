@@ -687,4 +687,5 @@ if __name__ == "__main__":
             db.session.commit()
             print(f"[INIT] Admin account created: {admin_email} / admin")
 
-    app.run(host="0.0.0.0", port=3000, debug=True)
+    # 👇 Make port dynamic (important for Cloud Run!)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)), debug=False)
