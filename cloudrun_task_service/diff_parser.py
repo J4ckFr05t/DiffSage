@@ -123,7 +123,9 @@ def regroup_by_file_path(data, message_separator=" || ", line_separator="---"):
 
     return list(grouped.values())
 
-def parse_diff_by_commit(commits, task=None, google_token=None, prompt_intro=None):
+def parse_diff_by_commit(commits, task_id=None, google_token=None, prompt_intro=None):
+    from main import save_task  # Local import to avoid circular import issues
+
     result = []
     for commit in commits:
         commit_entry = {
@@ -144,10 +146,9 @@ def parse_diff_by_commit(commits, task=None, google_token=None, prompt_intro=Non
                 }
                 change_type = change_type_map.get(raw_change, "modified")
                 is_new_file = change_type == "add"
-                
-                # Placeholder content (optional: refine for better summary prompts)
-                added_lines = ["// No diff available (Azure DevOps)"] if change_type != "delete" else []
-                removed_lines = ["// No diff available (Azure DevOps)"] if change_type != "add" else []
+
+                added_lines = ["// No diff available (Azure DevOps)"] if change_type != "deleted" else []
+                removed_lines = ["// No diff available (Azure DevOps)"] if change_type != "added" else []
 
                 commit_entry["files_changed"].append({
                     "file_path": file_path,
@@ -157,7 +158,6 @@ def parse_diff_by_commit(commits, task=None, google_token=None, prompt_intro=Non
                     "is_new_file": is_new_file
                 })
         else:
-            # GitHub/GitLab/Bitbucket-style commit with real diff
             try:
                 patch_set = PatchSet(StringIO(commit["diff"]))
                 for file in patch_set:
@@ -182,7 +182,6 @@ def parse_diff_by_commit(commits, task=None, google_token=None, prompt_intro=Non
                     })
             except UnidiffParseError as e:
                 print(f"[WARN] Failed to parse diff for commit {commit.get('sha')}: {e}")
-                # Optional: fallback logic here
 
         result.append(commit_entry)
 
@@ -192,7 +191,7 @@ def parse_diff_by_commit(commits, task=None, google_token=None, prompt_intro=Non
         for file_change in entry.get('files_changed', []):
             exploded.append({
                 'message': entry.get('message'),
-                'files_changed': [file_change]  # single-element list
+                'files_changed': [file_change]
             })
 
     change_type_priority = {
@@ -205,14 +204,19 @@ def parse_diff_by_commit(commits, task=None, google_token=None, prompt_intro=Non
     grouped_data = regroup_by_file_path_with_commit_context(exploded)
 
     print("Number of Files to be process:", len(grouped_data))
+    total = len(grouped_data)
 
     for index, item in enumerate(grouped_data, start=1):
-        if task:
-            task.update_state(state='PROGRESS', meta={
-                'current': index,
-                'total': len(grouped_data),
-                'status': f'Processed {index} of {len(grouped_data)}'
-            })
+        if task_id:
+            try:
+                progress = int((index / total) * 100)
+                save_task(task_id, {
+                    "state": "PROGRESS",
+                    "progress": progress,
+                    "details": f"Processed {index} of {total}"
+                })
+            except Exception as e:
+                print(f"[WARN] Failed to save progress: {e}")
 
         item["summary"] = summarize_change_with_retry_new(
             file_path=item["file_path"],
@@ -222,12 +226,11 @@ def parse_diff_by_commit(commits, task=None, google_token=None, prompt_intro=Non
         )
 
         if index % 15 == 0:
-            print(f"Processed {index}/{len(grouped_data)} items. Sleeping for 60 seconds to avoid hitting rate limits.")
+            print(f"Processed {index}/{total} items. Sleeping for 60 seconds to avoid rate limits.")
             time.sleep(60)
         else:
-            print(f"Processed {index}/{len(grouped_data)} items.")
+            print(f"Processed {index}/{total} items.")
 
     return grouped_data
-
 
 
