@@ -7,7 +7,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask import render_template
 from flask_migrate import Migrate
-from itsdangerous import URLSafeTimedSerializer
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from werkzeug.security import generate_password_hash, check_password_hash
 from scm_utils import get_github_pr_data, get_gitlab_pr_data, get_bitbucket_pr_data, get_azure_devops_pr_data
 from utils.token_utils import generate_reset_token, verify_reset_token
@@ -191,8 +191,21 @@ def signup():
 
         send_email(
             to=new_user.email,
-            subject="Verify Your Email",
-            body=f"Click to verify your email: {verify_url}"
+            subject="Confirm your email for DiffSage",
+            body=f"""
+                Hi {new_user.email},
+
+                Thank you for signing up for DiffSage!
+
+                To activate your account and start using our features, please verify your email by clicking the link below:
+
+                {verify_url}
+
+                If you did not create this account, you can safely ignore this email.
+
+                Best regards,  
+                The DiffSage Team
+                """
         )
 
         flash("Signup successful! Please check your email to verify your account.", "info")
@@ -217,26 +230,23 @@ def send_email(to, subject, body):
     msg.body = body
     mail.send(msg)
 
-@app.route("/verify-email/<token>")
+@app.route("/verify/<token>", methods=["GET", "POST"])
 def verify_email(token):
     email = confirm_email_token(token)
     if not email:
-        flash("Verification link is invalid or has expired.", "danger")
+        flash("Invalid or expired link.", "danger")
         return redirect(url_for("login"))
 
-    user = User.query.filter_by(email=email).first()
-    if not user:
-        flash("User not found.", "danger")
+    if request.method == "POST":
+        user = User.query.filter_by(email=email).first()
+        if user and not user.email_verified:
+            user.email_verified = True
+            db.session.commit()
+            flash("Email verified successfully!", "success")
         return redirect(url_for("login"))
 
-    if user.email_verified:
-        flash("Email already verified. Please log in.", "info")
-    else:
-        user.email_verified = True
-        db.session.commit()
-        flash("Email verified successfully! You can now log in.", "success")
-
-    return redirect(url_for("login"))
+    # Just render a page with a button to actually verify
+    return render_template("verify_click.html", token=token)
 
 @app.errorhandler(429)
 def ratelimit_handler(e):
