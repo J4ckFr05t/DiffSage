@@ -7,7 +7,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask import render_template
 from flask_migrate import Migrate
-from itsdangerous import URLSafeTimedSerializer
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from werkzeug.security import generate_password_hash, check_password_hash
 from scm_utils import get_github_pr_data, get_gitlab_pr_data, get_bitbucket_pr_data, get_azure_devops_pr_data
 from utils.token_utils import generate_reset_token, verify_reset_token
@@ -217,24 +217,24 @@ def send_email(to, subject, body):
     msg.body = body
     mail.send(msg)
 
-@app.route("/verify-email/<token>")
+@app.route("/verify/<token>")
 def verify_email(token):
-    email = confirm_email_token(token)
+    email = confirm_email_token(token)  # Uses your helper
+
     if not email:
-        flash("Verification link is invalid or has expired.", "danger")
+        flash("Invalid or expired verification link.", "danger")
         return redirect(url_for("login"))
 
     user = User.query.filter_by(email=email).first()
-    if not user:
-        flash("User not found.", "danger")
-        return redirect(url_for("login"))
-
-    if user.email_verified:
-        flash("Email already verified. Please log in.", "info")
+    if user:
+        if not user.email_verified:
+            user.email_verified = True
+            db.session.commit()
+            flash("Email verified successfully!", "success")
+        else:
+            flash("Email already verified.", "info")
     else:
-        user.email_verified = True
-        db.session.commit()
-        flash("Email verified successfully! You can now log in.", "success")
+        flash("User not found.", "danger")
 
     return redirect(url_for("login"))
 
