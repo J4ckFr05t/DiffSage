@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, send_file, jsonify, redirect, url_for, send_file, jsonify, flash, session
+from flask import Flask, render_template, request, send_file, jsonify, redirect, url_for, send_file, jsonify, flash, session, current_app
 from flask_mail import Mail, Message
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
@@ -6,6 +6,8 @@ from flask_wtf import CSRFProtect
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask import render_template
+from flask_migrate import Migrate
+from itsdangerous import URLSafeTimedSerializer
 from werkzeug.security import generate_password_hash, check_password_hash
 from scm_utils import get_github_pr_data, get_gitlab_pr_data, get_bitbucket_pr_data, get_azure_devops_pr_data
 from utils.token_utils import generate_reset_token, verify_reset_token
@@ -61,6 +63,8 @@ app.config['SECRET_KEY'] = secret_key if secret_key else "dev-secret-key"
 
 db = SQLAlchemy(app)
 
+migrate = Migrate(app, db)
+
 login_manager = LoginManager()
 login_manager.login_view = "login"
 login_manager.init_app(app)
@@ -77,6 +81,7 @@ class User(UserMixin, db.Model):
     is_admin = db.Column(db.Boolean, default=False)
     must_change_password = db.Column(db.Boolean, default=False)
     locked = db.Column(db.Boolean, default=False)
+    email_verified = db.Column(db.Boolean, default=False)
 
     # 🧪 Encrypted sensitive fields — stored as base64 or ciphertext, use Text
     _github_api_token = db.Column("github_api_token", db.Text)
@@ -179,11 +184,59 @@ def signup():
         new_user = User(email=email, password=hashed_password)
         db.session.add(new_user)
         db.session.commit()
-        login_user(new_user)
-        flash("Signup successful!", "success")
-        return redirect(url_for("user_dashboard"))
+
+        # ✅ Generate token and send verification email
+        token = generate_email_token(new_user.email)
+        verify_url = url_for('verify_email', token=token, _external=True)
+
+        send_email(
+            to=new_user.email,
+            subject="Verify Your Email",
+            body=f"Click to verify your email: {verify_url}"
+        )
+
+        flash("Signup successful! Please check your email to verify your account.", "info")
+        return redirect(url_for("login"))
 
     return render_template("signup.html")
+
+def generate_email_token(email):
+    serializer = URLSafeTimedSerializer(current_app.config["SECRET_KEY"])
+    return serializer.dumps(email, salt="email-confirm")
+
+def confirm_email_token(token, expiration=3600):
+    serializer = URLSafeTimedSerializer(current_app.config["SECRET_KEY"])
+    try:
+        email = serializer.loads(token, salt="email-confirm", max_age=expiration)
+    except Exception:
+        return None
+    return email
+
+def send_email(to, subject, body):
+    msg = Message(subject, recipients=[to])
+    msg.body = body
+    mail.send(msg)
+
+@app.route("/verify-email/<token>")
+def verify_email(token):
+    email = confirm_email_token(token)
+    if not email:
+        flash("Verification link is invalid or has expired.", "danger")
+        return redirect(url_for("login"))
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        flash("User not found.", "danger")
+        return redirect(url_for("login"))
+
+    if user.email_verified:
+        flash("Email already verified. Please log in.", "info")
+    else:
+        user.email_verified = True
+        db.session.commit()
+        flash("Email verified successfully! You can now log in.", "success")
+
+    return redirect(url_for("login"))
 
 @app.errorhandler(429)
 def ratelimit_handler(e):
@@ -199,10 +252,14 @@ def login():
 
         user = User.query.filter_by(email=email).first()
         if user and check_password_hash(user.password, password):
+            if not user.email_verified:
+                flash("Please verify your email before logging in.", "warning")
+                return redirect(url_for("login"))
+
             if user.locked:
                 flash("Your account has been locked. Contact admin.", "danger")
                 return redirect(url_for("login"))
-            
+
             login_user(user)
 
             if user.must_change_password:
@@ -761,6 +818,7 @@ def parse_azure_devops_url(url):
 
 if __name__ == "__main__":
     with app.app_context():
+
         db.create_all()  # Automatically create tables if they don't exist
 
         admin_email = "admin"
