@@ -821,14 +821,15 @@ if __name__ == "__main__":
 
         db.create_all()  # Automatically create tables if they don't exist
 
-        admin_email = "admin"
+        admin_email = "admin@diffsage.com"
         existing_admin = User.query.filter_by(email=admin_email).first()
         if not existing_admin:
             admin_user = User(
                 email=admin_email,
                 password=generate_password_hash("admin"),
                 is_admin=True,
-                must_change_password=True
+                must_change_password=True,
+                email_verified=True
             )
             db.session.add(admin_user)
             db.session.commit()

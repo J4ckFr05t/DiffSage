@@ -3,6 +3,7 @@ Flask-Login
 Flask-SQLAlchemy
 Flask-WTF
 Flask-Limiter[redis]
+Flask-Migrate
 flask-mail
 itsdangerous
 PyGithub
