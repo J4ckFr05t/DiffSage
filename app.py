@@ -191,8 +191,21 @@ def signup():
 
         send_email(
             to=new_user.email,
-            subject="Verify Your Email",
-            body=f"Click to verify your email: {verify_url}"
+            subject="Confirm your email for DiffSage",
+            body=f"""
+                Hi {new_user.email},
+
+                Thank you for signing up for DiffSage!
+
+                To activate your account and start using our features, please verify your email by clicking the link below:
+
+                {verify_url}
+
+                If you did not create this account, you can safely ignore this email.
+
+                Best regards,  
+                The DiffSage Team
+                """
         )
 
         flash("Signup successful! Please check your email to verify your account.", "info")
@@ -217,26 +230,23 @@ def send_email(to, subject, body):
     msg.body = body
     mail.send(msg)
 
-@app.route("/verify/<token>")
+@app.route("/verify/<token>", methods=["GET", "POST"])
 def verify_email(token):
-    email = confirm_email_token(token)  # Uses your helper
-
+    email = confirm_email_token(token)
     if not email:
-        flash("Invalid or expired verification link.", "danger")
+        flash("Invalid or expired link.", "danger")
         return redirect(url_for("login"))
 
-    user = User.query.filter_by(email=email).first()
-    if user:
-        if not user.email_verified:
+    if request.method == "POST":
+        user = User.query.filter_by(email=email).first()
+        if user and not user.email_verified:
             user.email_verified = True
             db.session.commit()
             flash("Email verified successfully!", "success")
-        else:
-            flash("Email already verified.", "info")
-    else:
-        flash("User not found.", "danger")
+        return redirect(url_for("login"))
 
-    return redirect(url_for("login"))
+    # Just render a page with a button to actually verify
+    return render_template("verify_click.html", token=token)
 
 @app.errorhandler(429)
 def ratelimit_handler(e):
