@@ -7,6 +7,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask import render_template
 from flask_migrate import Migrate
+from markupsafe import Markup
 from datetime import datetime
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -252,6 +253,63 @@ def send_email(to, subject, body, html):
     msg.html = html  # rich HTML version
     mail.send(msg)
 
+@app.route("/resend-verification", methods=["GET", "POST"])
+@limiter.limit("3 per hour", methods=["POST"])
+def resend_verification():
+    if request.method == "POST":
+        email = request.form.get("email")
+        user = User.query.filter_by(email=email).first()
+
+        if user and not user.email_verified:
+            token = generate_email_token(user.email)
+            verify_url = url_for("verify_email", token=token, _external=True)
+
+            plain_body = f"""
+            Hi {user.email},
+
+            Thank you for signing up for DiffSage!
+
+            To activate your account and start using our features, please verify your email by clicking the link below:
+
+            {verify_url}
+
+            If you did not create this account, you can safely ignore this email.
+
+            Best regards,  
+            The DiffSage Team
+            (Sent on {datetime.utcnow().strftime('%Y-%m-%d')})
+            """
+
+            html_body = f"""
+            <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: auto; padding: 20px; color: #333;">
+                <h2 style="color: #000;">Confirm your email for <span style="color: #6366f1;">DiffSage</span></h2>
+                <p>Hi {user.email},</p>
+                <p>Thank you for signing up for <strong>DiffSage</strong>!</p>
+                <p>To activate your account and start using our features, please verify your email by clicking the button below:</p>
+                <p style="text-align: center;">
+                    <a href="{verify_url}" style="background-color: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                        Verify Email
+                    </a>
+                </p>
+                <p>If you did not request this, you can safely ignore this email.</p>
+                <p style="font-size: 0.9em; color: #888;">This message was sent on {datetime.utcnow().strftime('%Y-%m-%d')}.</p>
+            </div>
+            """
+
+            send_email(
+                to=user.email,
+                subject="Confirm your email for DiffSage",
+                body=plain_body,
+                html=html_body
+            )
+
+            flash("A new verification email has been sent.", "info")
+            return redirect(url_for("login"))
+        else:
+            flash("Email not found or already verified.", "danger")
+
+    return render_template("resend_verification.html")
+
 @app.route("/verify/<token>", methods=["GET", "POST"])
 def verify_email(token):
     email = confirm_email_token(token)
@@ -272,8 +330,16 @@ def verify_email(token):
 
 @app.errorhandler(429)
 def ratelimit_handler(e):
-    flash("Too many login attempts. Please try again in a minute.", "danger")
-    return render_template("login.html"), 429
+    if request.endpoint == "login":
+        flash("Too many login attempts. Please try again in a minute.", "danger")
+        return render_template("login.html"), 429
+    elif request.endpoint == "resend_verification":
+        flash("Too many resend attempts. Please try again after 1 hour.", "danger")
+        return render_template("resend_verification.html"), 429
+    else:
+        flash("Too many requests. Please slow down.", "warning")
+        return redirect(url_for("login.html")), 429
+
 
 @app.route("/login", methods=["GET", "POST"])
 @limiter.limit("5 per minute")
@@ -285,7 +351,10 @@ def login():
         user = User.query.filter_by(email=email).first()
         if user and check_password_hash(user.password, password):
             if not user.email_verified:
-                flash("Please verify your email before logging in.", "warning")
+                flash(Markup(
+                    "Please verify your email before logging in. "
+                    "<a href='/resend-verification' class='alert-link'>Resend verification email</a>."
+                ), "warning")
                 return redirect(url_for("login"))
 
             if user.locked:
