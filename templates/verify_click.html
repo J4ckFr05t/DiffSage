@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Verify Email - DiffSage</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicons/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicons/favicon-16x16.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='favicons/apple-touch-icon.png') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='favicons/site.webmanifest') }}">
+
+    <style>
+        :root {
+            --bg: #f4f4f4;
+            --text: #000;
+            --card-bg: #fff;
+        }
+
+        body.dark {
+            --bg: #121212;
+            --text: #eaeaea;
+            --card-bg: #1e1e2f;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            transition: background 0.3s, color 0.3s;
+        }
+
+        body.login-gradient-light {
+            background: linear-gradient(-45deg, #e0f7fa, #f3e5f5, #fbe9e7, #e8f5e9);
+            background-size: 400% 400%;
+            animation: animatedGradient 18s ease infinite;
+        }
+
+        body.dark.login-gradient-dark {
+            background: linear-gradient(-45deg, #1e1e2f, #121212, #2b2b3b, #191919);
+            background-size: 400% 400%;
+            animation: animatedGradient 18s ease infinite;
+        }
+
+        @keyframes animatedGradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .theme-switch {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            width: 60px;
+            height: 34px;
+        }
+
+        .theme-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            background-color: #ccc;
+            border-radius: 34px;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            transition: 0.4s;
+        }
+
+        .slider:before {
+            content: "🌞";
+            position: absolute;
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            border-radius: 50%;
+            transition: 0.4s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        input:checked + .slider {
+            background-color: #333;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+            content: "🌜";
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 2.5rem 2rem;
+            border-radius: 20px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            font-size: 1.75rem;
+            margin-bottom: 1rem;
+        }
+
+        p {
+            font-size: 1rem;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+        a.button {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background: #347dff;
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 500;
+            transition: background 0.3s ease;
+        }
+
+        a.button:hover {
+            background: #2c6de6;
+        }
+
+        .styled-button {
+            padding: 0.75rem 1.5rem;
+            background: #347dff;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: 500;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .styled-button:hover {
+            background: #2c6de6;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+        }
+
+    </style>
+</head>
+<body class="dark login-gradient-dark">
+    <label class="theme-switch">
+        <input type="checkbox" id="theme-toggle" />
+        <span class="slider"></span>
+    </label>
+
+    <div class="container">
+        <div class="card">
+            <h1>Verify Your Email</h1>
+            <p>Thank you for signing up for <strong>Diff<span style="color: grey;">Sage</span></strong>. To complete your registration, please verify your email by clicking the button below.</p>
+            <form method="POST" action="{{ url_for('verify_email', token=token) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="button styled-button">Verify Email</button>
+            </form>            
+            <p>If you did not sign up, you can safely ignore this message.</p>
+        </div>
+    </div>
+
+    <script>
+        function applyTheme(theme) {
+            const body = document.body;
+            body.classList.toggle("dark", theme === "dark");
+            body.classList.remove("login-gradient-dark", "login-gradient-light");
+            body.classList.add(theme === "dark" ? "login-gradient-dark" : "login-gradient-light");
+
+            document.getElementById("theme-toggle").checked = theme === "dark";
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const toggle = document.getElementById("theme-toggle");
+            const savedTheme = localStorage.getItem("theme") || "dark";
+            applyTheme(savedTheme);
+
+            toggle.addEventListener("change", () => {
+                const theme = toggle.checked ? "dark" : "light";
+                localStorage.setItem("theme", theme);
+                applyTheme(theme);
+            });
+        });
+    </script>
+</body>
+</html>

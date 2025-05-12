@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicons/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicons/favicon-16x16.png') }}">
+    <link rel="icon" href="{{ url_for('static', filename='favicons/favicon.ico') }}" type="image/x-icon">
+
+    <!-- Apple Touch Icon -->
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='favicons/apple-touch-icon.png') }}">
+
+    <!-- Android Chrome -->
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='favicons/android-chrome-192x192.png') }}">
+    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='favicons/android-chrome-512x512.png') }}">
+
+    <!-- Web Manifest -->
+    <link rel="manifest" href="{{ url_for('static', filename='favicons/site.webmanifest') }}">
+    <title>DiffSage – Dashboard</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:400,600">
+    <style>
+        :root {
+        --bg: #f4f4f4;
+        --text: #000;
+        --input-bg: #fff;
+
+        --card-bg: #fefefe;
+        --card-text: #1a1a1a;
+        --tag-bg: #e0e0e0;
+        --tag-text: #333;
+        }
+
+        body.dark {
+        --bg: #121212;
+        --text: #eaeaea;
+        --input-bg: #1f1f1f;
+
+        --card-bg: #1e1e1e;
+        --card-text: #f5f5f5;
+        --tag-bg: #333;
+        --tag-text: #ddd;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .sidebar {
+            width: 250px;
+            background: var(--input-bg);
+            padding: 1.5rem;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.08);
+            box-sizing: border-box;
+            min-height: 100vh;       /* Start with full height of screen */
+            height: auto;            /* Let it grow beyond that */
+            position: sticky;        /* Optional: stick as you scroll */
+            top: 0;
+            align-self: flex-start;
+        }
+
+        .sidebar h2 {
+            margin-top: 0;
+            font-size: 1.8rem;
+        }
+
+        .sidebar a {
+            display: block;
+            margin: 0.5rem 0;
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 500;
+            padding: 0.5rem;
+            border-radius: 8px;
+        }
+
+        .sidebar a.active {
+            background-color: #347dff;
+            color: white;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            box-sizing: border-box;
+        }
+
+        .form-section {
+            max-width: 600px;
+        }
+
+        label {
+            font-weight: 600;
+            display: block;
+            margin-top: 1rem;
+        }
+
+        /* General Input Styles */
+        input[type="text"],
+        input[type="password"],
+        input[type="email"] {
+            padding: 12px;
+            width: 100%;
+            box-sizing: border-box;
+            border-radius: 8px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* Light Mode Input Styles */
+        body:not(.dark) input[type="text"],
+        body:not(.dark) input[type="password"],
+        body:not(.dark) input[type="email"] {
+            background-color: #f3f3f3; /* Light background */
+            color: #111;               /* Dark text */
+            border-color: #ccc;        /* Lighter border */
+        }
+
+        /* Dark Mode Input Styles */
+        body.dark input[type="text"],
+        body.dark input[type="password"],
+        body.dark input[type="email"] {
+            background-color: #1f1f1f; /* Dark background */
+            color: #fff;               /* Light text */
+            border-color: #444;        /* Darker border */
+        }
+
+        textarea {
+            border-radius: 8px;
+            border: 1px solid #444;
+            padding: 12px;
+            width: 100%;
+            box-sizing: border-box;
+            background-color: #111;
+            color: #fff;
+            font-size: 1rem;
+            resize: vertical;
+        }
+
+        /* Light mode for textarea */
+        body:not(.dark) textarea {
+            background-color: #f3f3f3;
+            color: #111;
+            border-color: #ccc;
+        }
+
+
+        button {
+            margin-top: 1.5rem;
+            padding: 0.75rem 1.5rem;
+            background: #347dff;
+            color: white;
+            font-size: 1rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .theme-switch {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            width: 60px;
+            height: 34px;
+        }
+
+        .theme-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            background-color: #ccc;
+            border-radius: 34px;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            transition: 0.4s;
+        }
+
+        .slider:before {
+            content: "🌞";
+            position: absolute;
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            border-radius: 50%;
+            transition: 0.4s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        input:checked + .slider {
+            background-color: #333;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+            content: "🌜";
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        .user-block {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin: 1.5rem 0 1rem;
+        }
+
+        .user-avatar {
+            width: 42px;
+            height: 42px;
+            background: #888;
+            border-radius: 50%;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .user-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-info span:first-child {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .user-info span:last-child {
+            font-size: 0.85rem;
+            color: gray;
+            word-break: break-all;
+        }
+
+        .user-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-wrapper input {
+            width: 100%;
+            padding-right: 40px;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 10px;
+            cursor: pointer;
+            user-select: none;
+            font-size: 18px;
+            color: #888;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-wrapper input {
+            width: 100%;
+            padding-right: 40px;
+        }
+
+        .eye-icon {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+            position: absolute;
+            right: 10px;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+        }
+
+        .eye-icon:hover {
+            opacity: 1;
+        }
+        .account-info-section {
+            padding: 2rem;
+            max-width: 800px;
+        }
+        .form-section {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        margin-bottom: 3rem;
+        }
+
+        .form-section h3 {
+        font-size: 1.2rem;
+        margin-bottom: 0.5rem;
+        }
+
+        .form-section label {
+        font-weight: 500;
+        }
+
+        .form-section input {
+        padding: 0.75rem;
+        border: 1px solid #444;
+        border-radius: 8px;
+        background-color: #1c1c1c;
+        color: #fff;
+        }
+
+        .form-section button {
+        padding: 0.75rem;
+        border: none;
+        border-radius: 8px;
+        background-color: #2979ff;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+        }
+        .flash-message {
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.75rem;
+            border-radius: 8px;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transition: opacity 0.5s ease;
+            max-width: 400px;
+            margin-inline: auto;
+            }
+
+            body.dark .flash-message {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            }
+
+            body:not(.dark) .flash-message {
+            background: rgba(0, 0, 0, 0.05);
+            color: #000;
+            }
+
+            .flash-container {
+                position: fixed;
+                top: 1rem;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 1000;
+                width: 100%;
+                max-width: 400px;
+                pointer-events: none; /* prevents blocking clicks under it */
+                }
+
+            .flash-message {
+            background-color: #444;
+            color: white;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            pointer-events: auto;
+            }
+
+            .select-wrapper {
+            margin-bottom: 20px;
+            }
+
+            .custom-select {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+            }
+
+            .custom-select select {
+            width: 100%;
+            padding: 10px 40px 10px 10px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 1px solid;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            transition: all 0.3s ease;
+            }
+
+            /* The dropdown arrow */
+            .select-arrow {
+            position: absolute;
+            top: 50%;
+            right: 12px;
+            pointer-events: none;
+            transform: translateY(-50%);
+            font-size: 16px;
+            }
+
+            /* Light theme */
+            body.light .custom-select select {
+            background-color: #ffffff;
+            color: #000000;
+            border-color: #ccc;
+            }
+
+            body.light .select-arrow {
+            color: #000000;
+            }
+
+            /* Dark theme */
+            body.dark .custom-select select {
+            background-color: #1e1e1e;
+            color: #ffffff;
+            border-color: #444;
+            }
+
+            body.dark .select-arrow {
+            color: #ffffff;
+            }
+
+            .select-wrapper label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem; /* adds space between label and dropdown */
+            }
+            textarea {
+            border-radius: 8px;
+            border: 1px solid #444;
+            padding: 12px;
+            width: 100%;
+            box-sizing: border-box;
+            background-color: #1c1c1c;
+            color: #fff;
+            font-size: 1rem;
+            resize: vertical;
+            }
+
+            body.light textarea {
+            background-color: #f3f3f3;
+            color: #111;
+            border-color: #ccc;
+            }
+            .prompt-card-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+            }
+
+            .prompt-card {
+            background-color: var(--card-bg);
+            color: var(--card-text);
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            }
+
+
+            .prompt-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            }
+
+            .prompt-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin: 0;
+            }
+
+            .prompt-tag {
+            background-color: var(--tag-bg);
+            color: var(--tag-text);
+            font-size: 0.85rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 8px;
+            display: inline-block;
+            margin: 0.75rem 0;
+            }
+
+
+            .prompt-text {
+            font-size: 0.95rem;
+            color: inherit;
+            line-height: 1.4;
+            }
+
+            /* Delete button */
+            .delete-btn {
+            background: transparent;
+            border: none;
+            color: #888;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: color 0.2s ease;
+            }
+            .delete-btn:hover {
+            color: #e74c3c;
+            }
+            .action-btn {
+            background-color: #3b82f6;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            }
+
+        .action-btn:hover {
+            background-color: #2563eb;
+            }
+
+        .delete-btn {
+            background-color: #ef4444;
+        }
+
+        .delete-btn:hover {
+            background-color: #dc2626;
+        }
+
+        .action-btn img {
+            width: 16px;
+            height: 16px;
+        }
+        .prompt-delete-btn {
+        background-color: #e74c3c;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
+
+    </style>
+</head>
+<body class="dark">
+    <label class="theme-switch">
+        <input type="checkbox" id="theme-toggle" />
+        <span class="slider"></span>
+    </label>
+
+    <div class="sidebar">
+        <h2>
+            <a href="/" style="text-decoration: none; color: inherit;">
+                Diff<span style="color: grey;">Sage</span>
+            </a>
+        </h2>
+
+        <div class="user-block">
+            <img class="user-avatar" src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="User Avatar">
+            <div class="user-info">
+                <span>Logged in</span>
+                <span>{{ user_email }}</span>
+            </div>
+        </div>
+
+        <a href="#" id="account-link" class="active">Account Info</a>
+        {% if is_admin %}
+        <a href="#" id="manage-users-link">Manage Users</a>
+        {% endif %}        
+        <a href="#" id="prompt-link">Prompt Configurator</a>
+        <a href="#" id="summarizer-link">GitDecode</a>
+        <a href="{{ url_for('logout') }}">Logout</a>
+    </div>
+
+    <div class="main-content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-container">
+            {% for category, message in messages %}
+              <div data-flash class="flash-message">
+                {{ message }}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+      
+      <div id="account-section" class="section active">
+        <div class="account-info-section">
+            <h2>Account Info</h2>
+            <!-- Update GitHub Token -->
+            <form action="/update_github_token" method="post" class="form-section">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <h3>Update GitHub Token</h3>
+            
+                <label>GitHub Personal Access Token</label>
+                <input type="password" name="github_api_token" placeholder="ghp_..." required />
+            
+                <button type="submit">Update GitHub Token</button>
+              </form>
+            
+              <!-- Update Google API Token -->
+              <form action="/update_google_token" method="post" class="form-section">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <h3>Update Google API Token</h3>
+            
+                <label>Google API Token</label>
+                <input type="password" name="google_api_token" placeholder="AIza..." required />
+            
+                <button type="submit">Update Google Token</button>
+              </form>
+
+            <!-- Update GitLab API Token -->
+            <form action="/update_gitlab_token" method="post" class="form-section">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <h3>Update GitLab API Token</h3>
+                <label>GitLab API Token</label>
+                <input type="password" name="gitlab_api_token" placeholder="glpat-..." required />
+                <button type="submit">Update GitLab Token</button>
+            </form>
+
+            <!-- Update Bitbucket Username and App Password -->
+            <form action="/update_bitbucket_credentials" method="post" class="form-section">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <h3>Update Bitbucket Credentials</h3>
+                <label>Bitbucket Username</label>
+                <input type="text" name="bitbucket_username" placeholder="bitbucket_username" required />
+                <label>Bitbucket App Password</label>
+                <input type="password" name="bitbucket_app_password" placeholder="bitbucket_app_password" required />
+                <button type="submit">Update Bitbucket Credentials</button>
+            </form>
+            
+            <!-- Update GitLab API Token -->
+            <form action="/update_azdevops_token" method="post" class="form-section">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <h3>Update Azure DevOps API Token</h3>
+                <label>Azure DevOps API Token</label>
+                <input type="password" name="azdevops_api_token" placeholder="EeBg-..." required />
+                <button type="submit">Update Azure DevOps API Token</button>
+            </form>
+
+            <!-- Change Password -->
+            <form action="/update_password" method="post" class="form-section">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <h3>Change Password</h3>
+          
+              <label>Current Password</label>
+              <input type="password" name="current_password" placeholder="Current Password" required />
+          
+              <label>New Password</label>
+              <input type="password" name="new_password" placeholder="New Password" required />
+          
+              <label>Confirm New Password</label>
+              <input type="password" name="confirm_password" placeholder="Confirm New Password" required />
+          
+              <button type="submit">Update Password</button>
+            </form>
+
+            <!-- Delete Account -->
+            <div class="form-section">
+                <h3>Delete Account</h3>
+                <p style="color: #b00020;">
+                Deleting your account is irreversible. All your saved prompts and tokens will be permanently removed.
+                </p>
+                <button type="button" onclick="showDeleteConfirmation()" class="btn btn-danger">Delete My Account</button>
+            </div>
+            
+            <!-- Confirmation Modal -->
+            <div id="deleteModal" class="modal-overlay" style="display:none;">
+                <div class="modal-content">
+                <h3>Confirm Account Deletion</h3>
+                <p>Are you absolutely sure you want to delete your account? This action cannot be undone.</p>
+                <form action="/delete_account" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">Yes, Delete My Account</button>
+                    <button type="button" onclick="closeDeleteModal()" class="btn">Cancel</button>
+                </form>
+                </div>
+            </div>
+  
+        </div>
+      </div>
+
+      {% if is_admin %}
+      <div id="manage-users-section" class="section">
+        <div class="account-info-section">
+            <h2>Manage Users</h2>
+            <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+                {% for user in users %}
+                <div style="background: var(--card-bg); color: var(--card-text); padding: 1rem; border-radius: 12px; width: 100%; max-width: 320px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 1rem;">
+                    <img src="https://bootdey.com/img/Content/avatar/avatar1.png" class="user-avatar" alt="User Avatar">
+                    <div style="flex: 1;">
+                        <strong>{{ user.email }}</strong><br>
+                        <small>{% if user.is_admin %}Admin{% else %}User{% endif %} | {% if user.locked %}Locked{% else %}Active{% endif %}</small>
+                        <div style="margin-top: 0.5rem;">
+                            {% if user.id != current_user.id %}
+                            <form method="POST" action="{{ url_for('delete_user', user_id=user.id) }}" style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="action-btn delete-btn" onclick="return confirm('Delete user {{ user.email }}?')">
+                                    🗑️ Delete
+                                </button>
+                            </form>
+                            <form method="POST" action="{{ url_for('toggle_lock_user', user_id=user.id) }}" style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="action-btn" style="margin-left: 0.5rem;">
+                                    {% if user.locked %} 🔓 Unlock {% else %} 🔒 Lock {% endif %}
+                                </button>
+                            </form>
+                            {% else %}
+                            <span style="color: gray;">(You)</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>    
+      {% endif %}         
+          
+        <div id="prompt-section" class="section">
+            <div class="account-info-section">
+                <h2>Prompt Configurator</h2>
+                <form action="/configure_prompt" method="post" class="form-section">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <h3>Set Up a Custom Prompt</h3>
+
+                    <div class="select-wrapper">
+                        <label for="app_function">Application Function</label>
+                        <div class="custom-select">
+                          <select name="app_function" id="app_function">
+                            <option value="GitDecode">GitDecode</option>
+                          </select>
+                          <span class="select-arrow">&#9662;</span> <!-- ▼ arrow -->
+                        </div>
+                      </div>
+                      
+        
+                    <label for="prompt_name">Prompt Name</label>
+                    <input type="text" name="prompt_name" placeholder="e.g. Code Review Prompt" required />
+        
+                    <label for="prompt_intro">Prompt Text</label>
+                    <textarea name="prompt_intro" placeholder="Enter the instruction..." rows="5" required></textarea>
+                    <button type="submit">Save Prompt</button>
+                </form>
+
+                <!-- Your Prompts Section -->
+                <div class="your-prompts-section">
+                    <h3>Your Prompts</h3>
+                    {% if prompts %}
+                      <div class="prompt-card-container">
+                        {% for prompt in prompts %}
+                          <div class="prompt-card">
+                            <div class="prompt-card-header">
+                              <h4 class="prompt-title">{{ prompt.prompt_name }}</h4>
+                              <form method="POST" action="{{ url_for('delete_prompt') }}">
+                                <input type="hidden" name="prompt_name" value="{{ prompt.prompt_name }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="prompt-delete-btn" title="Delete Prompt">✕</button>
+                              </form>
+                            </div>
+                            <span class="prompt-tag">{{ prompt.app_function.replace('_', ' ').title() }}</span>
+                            <p class="prompt-text">{{ prompt.prompt_intro }}</p>
+                          </div>
+                        {% endfor %}
+                      </div>
+                    {% else %}
+                      <p>No prompts saved yet.</p>
+                    {% endif %}
+                </div>                  
+
+            </div>
+        </div>
+
+        <div id="summarizer-section" class="section">
+            {% include "components/pr_summarizer.html" %}
+        </div>
+          
+    </div>
+
+    <script>
+        function applyTheme(theme) {
+            document.body.classList.toggle("dark", theme === "dark");
+            document.getElementById("theme-toggle").checked = theme === "dark";
+        }
+    
+        document.addEventListener("DOMContentLoaded", () => {
+            const savedTheme = localStorage.getItem("theme") || "dark";
+            applyTheme(savedTheme);
+    
+            document.getElementById("theme-toggle").addEventListener("change", () => {
+                const newTheme = document.getElementById("theme-toggle").checked ? "dark" : "light";
+                localStorage.setItem("theme", newTheme);
+                applyTheme(newTheme);
+            });
+    
+            const accountLink = document.getElementById('account-link');
+            const summarizerLink = document.getElementById('summarizer-link');
+            const accountSection = document.getElementById('account-section');
+            const summarizerSection = document.getElementById('summarizer-section');
+            const promptLink = document.getElementById('prompt-link');
+            const promptSection = document.getElementById('prompt-section');
+            const manageUsersLink = document.getElementById('manage-users-link');
+            const manageUsersSection = document.getElementById('manage-users-section');
+    
+            // Restore section from localStorage
+            const activeSection = localStorage.getItem("activeSection") || "account";
+    
+            if (activeSection === "summarizer") {
+                summarizerLink.classList.add('active');
+                accountLink.classList.remove('active');
+                promptLink.classList.remove('active');
+                if (manageUsersLink) manageUsersLink.classList.remove('active');
+    
+                summarizerSection.classList.add('active');
+                accountSection.classList.remove('active');
+                promptSection.classList.remove('active');
+                if (manageUsersSection) manageUsersSection.classList.remove('active');
+            } else if (activeSection === "prompt") {
+                promptLink.classList.add('active');
+                accountLink.classList.remove('active');
+                summarizerLink.classList.remove('active');
+                if (manageUsersLink) manageUsersLink.classList.remove('active');
+    
+                promptSection.classList.add('active');
+                accountSection.classList.remove('active');
+                summarizerSection.classList.remove('active');
+                if (manageUsersSection) manageUsersSection.classList.remove('active');
+            } else if (activeSection === "manage-users") {
+                if (manageUsersLink) manageUsersLink.classList.add('active');
+                accountLink.classList.remove('active');
+                summarizerLink.classList.remove('active');
+                promptLink.classList.remove('active');
+    
+                if (manageUsersSection) manageUsersSection.classList.add('active');
+                accountSection.classList.remove('active');
+                summarizerSection.classList.remove('active');
+                promptSection.classList.remove('active');
+            } else {
+                accountLink.classList.add('active');
+                summarizerLink.classList.remove('active');
+                promptLink.classList.remove('active');
+                if (manageUsersLink) manageUsersLink.classList.remove('active');
+    
+                accountSection.classList.add('active');
+                summarizerSection.classList.remove('active');
+                promptSection.classList.remove('active');
+                if (manageUsersSection) manageUsersSection.classList.remove('active');
+            }
+    
+            // Set section on click
+            accountLink.addEventListener('click', () => {
+                localStorage.setItem("activeSection", "account");
+                accountLink.classList.add('active');
+                summarizerLink.classList.remove('active');
+                promptLink.classList.remove('active');
+                if (manageUsersLink) manageUsersLink.classList.remove('active');
+    
+                accountSection.classList.add('active');
+                summarizerSection.classList.remove('active');
+                promptSection.classList.remove('active');
+                if (manageUsersSection) manageUsersSection.classList.remove('active');
+            });
+    
+            summarizerLink.addEventListener('click', () => {
+                localStorage.setItem("activeSection", "summarizer");
+                summarizerLink.classList.add('active');
+                accountLink.classList.remove('active');
+                promptLink.classList.remove('active');
+                if (manageUsersLink) manageUsersLink.classList.remove('active');
+    
+                summarizerSection.classList.add('active');
+                accountSection.classList.remove('active');
+                promptSection.classList.remove('active');
+                if (manageUsersSection) manageUsersSection.classList.remove('active');
+            });
+    
+            promptLink.addEventListener('click', () => {
+                localStorage.setItem("activeSection", "prompt");
+                promptLink.classList.add('active');
+                accountLink.classList.remove('active');
+                summarizerLink.classList.remove('active');
+                if (manageUsersLink) manageUsersLink.classList.remove('active');
+    
+                promptSection.classList.add('active');
+                accountSection.classList.remove('active');
+                summarizerSection.classList.remove('active');
+                if (manageUsersSection) manageUsersSection.classList.remove('active');
+            });
+    
+            if (manageUsersLink) {
+                manageUsersLink.addEventListener('click', () => {
+                    localStorage.setItem("activeSection", "manage-users");
+                    manageUsersLink.classList.add('active');
+                    accountLink.classList.remove('active');
+                    summarizerLink.classList.remove('active');
+                    promptLink.classList.remove('active');
+    
+                    if (manageUsersSection) manageUsersSection.classList.add('active');
+                    accountSection.classList.remove('active');
+                    summarizerSection.classList.remove('active');
+                    promptSection.classList.remove('active');
+                });
+            }
+        });
+    </script>
+    
+    <script>
+        document.querySelectorAll(".eye-icon").forEach(icon => {
+            icon.addEventListener("click", () => {
+                const input = icon.previousElementSibling;
+                input.type = input.type === "password" ? "text" : "password";
+            });
+        });
+    </script>
+    <script>
+        // Auto-hide flash messages after 3 seconds
+        setTimeout(() => {
+          const flashMessages = document.querySelectorAll('[data-flash]');
+          flashMessages.forEach(msg => {
+            msg.style.transition = 'opacity 0.5s ease';
+            msg.style.opacity = '0';
+            setTimeout(() => msg.remove(), 500);
+          });
+        }, 3000);
+      </script>
+    <script>
+        function showDeleteConfirmation() {
+        document.getElementById("deleteModal").style.display = "flex";
+        }
+        function closeDeleteModal() {
+        document.getElementById("deleteModal").style.display = "none";
+        }
+    </script>
+</body>
+</html>
