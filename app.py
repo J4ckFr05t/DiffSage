@@ -50,8 +50,8 @@ app.config["MAIL_DEFAULT_SENDER"] = os.environ.get("MAIL_DEFAULT_SENDER")
 
 mail = Mail(app)
 
-CLOUDRUN_ANALYZE_URL = os.getenv("CLOUDRUN_ANALYZE_URL", "http://localhost:8080/analyze")  # local test fallback
-CLOUDRUN_STATUS_URL = os.getenv("CLOUDRUN_STATUS_URL", "http://localhost:8080/status")
+CLOUDRUN_ANALYZE_URL = os.getenv("CLOUDRUN_ANALYZE_URL", "http://localhost:8081/analyze")  # local test fallback
+CLOUDRUN_STATUS_URL = os.getenv("CLOUDRUN_STATUS_URL", "http://localhost:8081/status")
 
 db_url = os.getenv("DATABASE_URL")
 if not db_url:

@@ -7,4 +7,4 @@ RUN pip install --no-cache-dir flask google-generativeai unidiff python-dotenv g
 
 EXPOSE 8080
 
-CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:8080", "main:app"]
+CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:8081", "main:app"]
