@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: diffsage_postgres
+    environment:
+      POSTGRES_DB: diffsage
+      POSTGRES_USER: diffsage
+      POSTGRES_PASSWORD: diffsage_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U diffsage"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: diffsage_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Main Flask Application
+  app:
+    build: .
+    container_name: diffsage_app
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      task-service:
+        condition: service_started
+    volumes:
+      - .:/app
+    restart: unless-stopped
+
+  # Cloud Run Task Service
+  task-service:
+    build: ./cloudrun_task_service
+    container_name: diffsage_task_service
+    ports:
+      - "8081:8081"
+    environment:
+      - FLASK_ENV=production
+    env_file:
+      - .env
+    volumes:
+      - ./cloudrun_task_service:/app
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
