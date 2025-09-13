@@ -39,8 +39,14 @@ services:
     container_name: diffsage_app
     ports:
       - "8080:8080"
-    env_file:
-      - .env
+    environment:
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - SECRET_KEY=${SECRET_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - MAIL_DEFAULT_SENDER=${MAIL_DEFAULT_SENDER}
     depends_on:
       postgres:
         condition: service_healthy
@@ -60,8 +66,13 @@ services:
       - "8081:8081"
     environment:
       - FLASK_ENV=production
-    env_file:
-      - .env
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - SECRET_KEY=${SECRET_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - MAIL_DEFAULT_SENDER=${MAIL_DEFAULT_SENDER}
     volumes:
       - ./cloudrun_task_service:/app
     restart: unless-stopped
