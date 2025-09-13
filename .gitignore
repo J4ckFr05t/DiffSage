@@ -7,3 +7,4 @@ venv/
 instance/
 *.db
 .DS_Store
+cloudrun_task_service/tasks/
