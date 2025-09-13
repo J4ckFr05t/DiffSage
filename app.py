@@ -50,8 +50,28 @@ app.config["MAIL_DEFAULT_SENDER"] = os.environ.get("MAIL_DEFAULT_SENDER")
 
 mail = Mail(app)
 
-CLOUDRUN_ANALYZE_URL = os.getenv("CLOUDRUN_ANALYZE_URL", "http://localhost:8081/analyze")  # local test fallback
-CLOUDRUN_STATUS_URL = os.getenv("CLOUDRUN_STATUS_URL", "http://localhost:8081/status")
+# Three-tier fallback: .env -> task-service (Docker) -> localhost (local dev)
+CLOUDRUN_ANALYZE_URL = os.getenv("CLOUDRUN_ANALYZE_URL") or "http://task-service:8081/analyze"
+if CLOUDRUN_ANALYZE_URL == "http://task-service:8081/analyze":
+    # If using Docker fallback, try localhost as final fallback for local development
+    import socket
+    try:
+        # Test if task-service is reachable (Docker environment)
+        socket.create_connection(("task-service", 8081), timeout=1)
+    except (socket.gaierror, ConnectionRefusedError, OSError):
+        # Fallback to localhost for local development
+        CLOUDRUN_ANALYZE_URL = "http://localhost:8081/analyze"
+
+CLOUDRUN_STATUS_URL = os.getenv("CLOUDRUN_STATUS_URL") or "http://task-service:8081/status"
+if CLOUDRUN_STATUS_URL == "http://task-service:8081/status":
+    # If using Docker fallback, try localhost as final fallback for local development
+    import socket
+    try:
+        # Test if task-service is reachable (Docker environment)
+        socket.create_connection(("task-service", 8081), timeout=1)
+    except (socket.gaierror, ConnectionRefusedError, OSError):
+        # Fallback to localhost for local development
+        CLOUDRUN_STATUS_URL = "http://localhost:8081/status"
 
 db_url = os.getenv("DATABASE_URL")
 if not db_url:
