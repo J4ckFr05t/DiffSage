@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
@@ -54,8 +52,6 @@ services:
         condition: service_healthy
       task-service:
         condition: service_started
-    volumes:
-      - .:/app
     restart: unless-stopped
 
   # Cloud Run Task Service
@@ -73,8 +69,6 @@ services:
       - MAIL_USERNAME=${MAIL_USERNAME}
       - MAIL_PASSWORD=${MAIL_PASSWORD}
       - MAIL_DEFAULT_SENDER=${MAIL_DEFAULT_SENDER}
-    volumes:
-      - ./cloudrun_task_service:/app
     restart: unless-stopped
 
 volumes:
