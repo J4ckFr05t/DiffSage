@@ -9,7 +9,7 @@ import re, time
 
 def summarize_change_with_retry_new(file_path, commits, google_token=None, retries=3, prompt_intro=None):
     genai.configure(api_key=google_token)
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    model = genai.GenerativeModel("gemma-3-27b-it")
 
     attempt = 0
     while attempt < retries:

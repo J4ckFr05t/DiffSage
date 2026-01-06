@@ -178,7 +178,7 @@ class Prompt(db.Model):
 def validate_google_token(token):
     try:
         genai.configure(api_key=token)
-        model = genai.GenerativeModel("gemini-2.0-flash")
+        model = genai.GenerativeModel("gemma-3-27b-it")
         _ = model.generate_content("Hello", generation_config=genai.types.GenerationConfig(
             temperature=0.1, max_output_tokens=10
         ))
